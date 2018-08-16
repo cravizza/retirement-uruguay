@@ -1,0 +1,202 @@
+
+ make.py started: 2018-08-07 16:14:58 C:\Users\cravizza\Google Drive (catalina_ravizza_araya@brown.edu)\Projects\retirement-uruguay\code\derived\code 
+
+
+
+
+Execute:  "C:\Program Files (x86)\Stata15\StataSE-64.exe" /e do "./base_dgi.do"
+
+  ___  ____  ____  ____  ____ (R)
+ /__    /   ____/   /   ____/
+___/   /   /___/   /   /___/   15.0   Copyright 1985-2017 StataCorp LLC
+  Statistics/Data Analysis            StataCorp
+                                      4905 Lakeway Drive
+     Special Edition                  College Station, Texas 77845 USA
+                                      800-STATA-PC        http://www.stata.com
+                                      979-696-4600        stata@stata.com
+                                      979-696-4601 (fax)
+
+110-user Stata network perpetual license:
+       Serial number:  401506201178
+         Licensed to:  Brown University
+                       Brown University
+
+Notes:
+      1.  Stata is running in batch mode.
+      2.  Unicode is supported; see help unicode_advice.
+      3.  Maximum number of variables is set to 5000; see help set_maxvar.
+
+. do ./base_dgi.do 
+
+. clear all
+
+. global path_dgi "C:\Users\cravizza\Google Drive\Projects\Aborto-Uruguay\other
+> _data\DGI+BASES+WEB"
+
+. 
+. program main
+  1.         append_merge_data
+  2.         create_new_vars 
+  3. end
+
+. 
+. program append_merge_data
+  1.         * Import income_levels & inflation
+.         import excel "${path_dgi}\income_levels.xlsx", clear firstrow
+  2.         drop _*
+  3.         save ..\temp\income_levels.dta, replace
+  4.         import excel "${path_dgi}\inflation.xlsx", clear firstrow
+  5.         rename anio year
+  6.         keep year cpi_2009
+  7.         save ..\temp\inflation.dta, replace
+  8.         clear
+  9.         * Construct panel dataset
+.         forvalues year = 2009/2012 {
+ 10.                 import excel "${path_dgi}\muestra`year'.xlsx", clear first
+> row 
+ 11.                 gen year = `year'
+ 12.                 save ..\temp\dgi_m_`year', replace
+ 13.         }
+ 14.         use ..\temp\dgi_m_2009
+ 15.         forvalues year = 2010/2012 {
+ 16.                 append using ..\temp\dgi_m_`year'
+ 17.         }
+ 18.         isid nii_retenido_muestra year
+ 19.         assert !(base_catIIop==1 & base_nf==1) //for CatII only single or 
+> married
+ 20.         merge m:1 year using ..\temp\income_levels.dta, assert(3) nogen
+ 21.         merge m:1 year using ..\temp\inflation.dta, keep(3) nogen
+ 22.         save ..\temp\dgi_2009_2012.dta, replace
+ 23. end
+
+. 
+. program create_new_vars
+  1.         use ..\temp\dgi_2009_2012.dta, clear
+  2.         * Note ingresos_catIIop>=ingresos_computables_catIIop if !mi(ingre
+> sos_computables_catIIop)
+.         gen     ingresos_catIIop2 = ingresos_catIIop             if year!=201
+> 2
+  3.         replace ingresos_catIIop2 = ingresos_computables_catIIop if year==
+> 2012
+  4.         lab var ingresos_catIIop2 "Taxable labor income (single)"
+  5.         lab var ingresos_nf_retenido "Taxable labor income (pers1)"
+  6.         lab var ingresos_nf_conyuge  "Taxable labor income (pers2)"
+  7.         egen income_op = rowtotal(ingresos_catIIop montoimponible651 monto
+> imponible652 ///
+>                                                           montoimponible653 m
+> ontoimponible662 montoimponible663 ///
+>                                                           montoimponible664 m
+> ontoimponible660 montoimponible671 ///
+>                                                           montoimponible680 m
+> ontoimponible666 montoimponible667 ///
+>                                                           montoimponible668 P
+> atr) if base_catIIop==1
+  8.         lab var income_op "Taxable total income (single)"
+  9.         * Inflation adjustment
+.         foreach var in ingresos_catIIop ingresos_catIIop2 level_1 level_2 lev
+> el_3 {
+ 10.                 gen r_`var' = (`var') / (cpi_2009/100)
+ 11.         }
+ 12.         lab var   ingresos_catIIop  "Nominal taxable labor income (single)
+> "
+ 13.         lab var r_ingresos_catIIop  "Real taxable labor income (single)"
+ 14.         * Derived income vars
+.         forvalues level = 1/3 {
+ 15.                 gen diff_l`level' = r_ingresos_catIIop - (r_level_`level'*
+> 12)
+ 16.                 label var diff_l`level' "Real labor income relative to Lev
+> el `level'"
+ 17.                 gen inc_l`level'_above = (r_ingresos_catIIop >(r_level_`le
+> vel'*12)) ///
+>                         if !mi(`var') & base_catIIop==1
+ 18.         }
+ 19.         foreach var in income_op r_ingresos_catIIop ingresos_catIIop {
+ 20.                 qui sum `var' if !mi(`var') & base_catIIop==1, det
+ 21.                 gen `var'_above = (`var'>`r(p50)') ///
+>                         if !mi(`var') & base_catIIop==1
+ 22.         }
+ 23.         * Demo vars
+.         rename edad age
+ 24.         label var age Age
+ 25.         gen yob = year - age
+ 26.         lab var yob "Year of birth"
+ 27.         assert inlist(sexo,1,2)
+ 28.         replace sexo = 0 if sexo==2
+ 29.         * Cutoff var: age 40 in 04-1996. Only yob, so could exclude anyone
+>  40 in 1996
+.         gen reform = (yob<1956) if yob!=1956
+ 30.         gen cohort_t = (inrange(yob,1957,1961)) if inrange(yob,1951,1955)|
+> inrange(yob,1957,1961)
+ 31.         
+.         gen peso2 = peso*1000000000000
+ 32.         save ..\output\dgi_2009_2012_new_vars.dta, replace
+ 33. end
+
+. 
+. main
+(note: file ..\temp\income_levels.dta not found)
+file ..\temp\income_levels.dta saved
+(note: file ..\temp\inflation.dta not found)
+file ..\temp\inflation.dta saved
+(note: file ..\temp\dgi_m_2009.dta not found)
+file ..\temp\dgi_m_2009.dta saved
+(note: file ..\temp\dgi_m_2010.dta not found)
+file ..\temp\dgi_m_2010.dta saved
+(note: file ..\temp\dgi_m_2011.dta not found)
+file ..\temp\dgi_m_2011.dta saved
+(note: file ..\temp\dgi_m_2012.dta not found)
+file ..\temp\dgi_m_2012.dta saved
+(note: variable montoimponible653 was byte, now double to accommodate using
+       data's values)
+(note: variable impuesto653 was byte, now int to accommodate using data's
+       values)
+(note: variable montoimponible666 was byte, now long to accommodate using
+       data's values)
+(note: variable montoimponible667 was byte, now long to accommodate using
+       data's values)
+(note: variable montoimponible668 was byte, now long to accommodate using
+       data's values)
+(note: variable impuesto666 was byte, now int to accommodate using data's
+       values)
+(note: variable impuesto667 was byte, now long to accommodate using data's
+       values)
+(note: variable impuesto668 was byte, now long to accommodate using data's
+       values)
+(note: variable impuesto662 was int, now long to accommodate using data's
+       values)
+(note: variable impuesto666 was int, now long to accommodate using data's
+       values)
+
+    Result                           # of obs.
+    -----------------------------------------
+    not matched                             0
+    matched                           411,932  
+    -----------------------------------------
+
+    Result                           # of obs.
+    -----------------------------------------
+    not matched                             0
+    matched                           411,932  
+    -----------------------------------------
+(note: file ..\temp\dgi_2009_2012.dta not found)
+file ..\temp\dgi_2009_2012.dta saved
+(105,283 missing values generated)
+(105,283 real changes made)
+(136742 missing values generated)
+(136,742 missing values generated)
+(136,742 missing values generated)
+(136,742 missing values generated)
+(136,742 missing values generated)
+(136,742 missing values generated)
+(136,742 missing values generated)
+(198,675 real changes made)
+(6,655 missing values generated)
+(350,752 missing values generated)
+(note: file ..\output\dgi_2009_2012_new_vars.dta not found)
+file ..\output\dgi_2009_2012_new_vars.dta saved
+
+. 
+. 
+end of do-file
+
+ make.py ended: 2018-08-07 16:17:28

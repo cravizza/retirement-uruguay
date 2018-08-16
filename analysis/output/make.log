@@ -1,0 +1,797 @@
+
+ make.py started: 2018-08-07 16:40:22 C:\Users\cravizza\Google Drive (catalina_ravizza_araya@brown.edu)\Projects\retirement-uruguay\retirement-uruguay\analysis\code 
+
+
+
+
+Execute:  "C:\Program Files (x86)\Stata15\StataSE-64.exe" /e do "./plots_dgi.do"
+
+  ___  ____  ____  ____  ____ (R)
+ /__    /   ____/   /   ____/
+___/   /   /___/   /   /___/   15.0   Copyright 1985-2017 StataCorp LLC
+  Statistics/Data Analysis            StataCorp
+                                      4905 Lakeway Drive
+     Special Edition                  College Station, Texas 77845 USA
+                                      800-STATA-PC        http://www.stata.com
+                                      979-696-4600        stata@stata.com
+                                      979-696-4601 (fax)
+
+110-user Stata network perpetual license:
+       Serial number:  401506201178
+         Licensed to:  Brown University
+                       Brown University
+
+Notes:
+      1.  Stata is running in batch mode.
+      2.  Unicode is supported; see help unicode_advice.
+      3.  Maximum number of variables is set to 5000; see help set_maxvar.
+
+. do ./plots_dgi.do 
+
+. clear all
+
+. set more off
+
+. 
+. program main
+  1.         summary_stats, run_command(count)   sample(base_catIIop==1 & inran
+> ge(yob,1951,1961) & base_iass==1)
+  2.         summary_stats, run_command(sum age) sample(base_catIIop==1 & inran
+> ge(yob,1951,1961) & base_iass==1)
+  3.         * Plots by cohort
+.         foreach var in ingresos_catIIop r_ingresos_catIIop { //income_op 
+  4.                 income_cohort, outcome(`var') t_var(age) restr(& base_catI
+> Iop==1 & sexo==1) graph_name(Men)
+  5.                 income_cohort, outcome(`var') t_var(age) restr(& base_catI
+> Iop==1 & sexo==0) graph_name(Women)
+  6.                 //income_cohort, outcome(`var') t_var(age) restr(& inc_l3_
+> above==1 & base_catIIop==1) graph_name(Above_level_3)
+.                 //income_cohort, outcome(`var') t_var(age) restr(& inc_l1_abo
+> ve==1 & inc_l2_above==0 & base_catIIop==1) graph_name(Level_1_to_2)
+.                 //income_cohort, outcome(`var') t_var(age) restr(& inc_l2_abo
+> ve==1 & inc_l3_above==0 & base_catIIop==1) graph_name(Level_2_to_3)
+.                 //income_cohort, outcome(`var') t_var(age) restr(& `var'_abov
+> e==0 & base_catIIop==1) graph_name(Below_median)
+.                 income_cohort, outcome(`var') t_var(age) restr(& base_catIIop
+> ==1 & inc_l1_above==1 & inc_l3_above==0) graph_name(Level_1_to_3)
+  7.                 income_cohort, outcome(`var') t_var(age) restr(& base_catI
+> Iop==1 &  `var'_above==1) graph_name(Above_median)
+  8. 
+.                 grc1leg Men Women Level_1_to_3 Above_median, rows(1) legendfr
+> om(Men) position(6) cols(2) ///
+>                         graphregion(color(white))
+  9.                 graph export ..\output\plot_`var'_all.pdf, replace
+ 10.                 grc1leg Men Women, rows(2) legendfrom(Men) position(6) col
+> s(2) ///
+>                         graphregion(color(white))  scale(1.2)
+ 11.                 graph display, ysiz(6) xsize(12)
+ 12.                 graph export ..\output\plot_`var'_gender.pdf, replace
+ 13.                 grc1leg Level_1_to_3 Above_median, rows(1) legendfrom(Leve
+> l_1_to_3) position(6) cols(2) ///
+>                         graphregion(color(white))  scale(1.2)
+ 14.                 graph display, ysiz(6) xsize(12)
+ 15.                 graph export ..\output\plot_`var'_income.pdf, replace
+ 16.                 graph drop _all
+ 17.         }
+ 18.         * Plot income distribution
+.         income_distr, outcome(r_ingresos_catIIop) restr(cohort_t==1 | yob==19
+> 56) graph_name(After_1956_inclusive)
+ 19.         income_distr, outcome(r_ingresos_catIIop) restr(cohort_t==0) graph
+> _name(Before_1956)
+ 20.         graph combine Before_1956 After_1956_inclusive , ysiz(2.5) graphre
+> gion(color(white)) scale(1.5) ycom
+ 21.         graph export ..\output\plot_income_distr.pdf, replace 
+ 22.         * Plots relative income distribution
+.         income_distr_rel, outcome(diff_l1) graph_name(Level_1)
+ 23.         income_distr_rel, outcome(diff_l3) graph_name(Level_3)
+ 24.         graph combine Level_1 Level_3, ysiz(2.5) graphregion(color(white))
+>  scale(1.5) 
+ 25.         graph export ..\output\plot_l1_l3.pdf, replace 
+ 26.         graph combine Level_1_s Level_3_s, ysiz(2.5) graphregion(color(whi
+> te)) scale(1.5) 
+ 27.         graph export ..\output\plot_l1_l3_s.pdf, replace 
+ 28.         graph combine Level_1_nc Level_3_nc, ysiz(2.5) graphregion(color(w
+> hite)) scale(1.5) 
+ 29.         graph export ..\output\plot_l1_l3_nc.pdf, replace 
+ 30.         graph drop _all
+ 31. end
+
+. 
+. capture program drop summary_stats
+
+. program              summary_stats
+  1. syntax, run_command(str) sample(str)
+  2.         use ..\..\derived\output\dgi_2009_2012_new_vars.dta, clear
+  3.         `run_command' if base_catIIop==1 & base_catI==0 & base_pat==0 & `s
+> ample'
+  4.         `run_command' if base_catIIop==0 & base_catI==1 & base_pat==0 & `s
+> ample'
+  5.         `run_command' if base_catIIop==0 & base_catI==0 & base_pat==1 & `s
+> ample'
+  6.         `run_command' if base_catIIop==1 & base_catI==1 & base_pat==0 & `s
+> ample'
+  7.         `run_command' if base_catIIop==1 & base_catI==0 & base_pat==1 & `s
+> ample'
+  8.         `run_command' if base_catIIop==0 & base_catI==1 & base_pat==1 & `s
+> ample'
+  9.         `run_command' if base_catIIop==1 & base_catI==1 & base_pat==1 & `s
+> ample'
+ 10. end
+
+. 
+. capture program drop income_cohort
+
+. program              income_cohort
+  1. syntax, outcome(string) restr(string) graph_name(string) t_var(string)
+  2.         use ..\..\derived\output\dgi_2009_2012_new_vars.dta, clear
+  3.         preserve
+  4.                 collapse (mean) `outcome' [aw = peso] if (!mi(cohort_t) | 
+> yob==1956) `restr', by(yob `t_var')
+  5.                 capture lab var r_ingresos_catIIop  "Real taxable labor in
+> come (single)"
+  6.                 capture lab var   ingresos_catIIop  "Nominal taxable labor
+>  income (single)"
+  7.                 capture lab var ingresos_catIIop2 "Taxable labor income (s
+> ingle)"
+  8.                 capture lab var income_op "Taxable total income (single)"
+  9.                 xtset yob `t_var'
+ 10.                 sum `t_var'
+ 11.                 local t_min `r(min)'
+ 12.                 local t_max `r(max)'
+ 13.                 sum `outcome'
+ 14.                 local y_min = round(`r(min)'/10000)*10000
+ 15.                 local y_max = round(`r(max)'/10000)*10000
+ 16.                 local interval = round((`y_max'-`y_min')/2)
+ 17.                 xtline `outcome', ov name(`graph_name') ylabel(`y_min' (`i
+> nterval') `y_max') ///
+>                         tlabel(`t_min' (2) `t_max' ) legend(rows(2) symx(5) s
+> i(small)) ///
+>                         graphregion(color(white)) bgcolor(white) title(`graph
+> _name') ///
+>                         plot6(lp("-..")) plot7(lp(dash)) plot8(lp(dash)) plot
+> 9(lp(dash)) ///
+>                         plot10(lp(dash)) plot11(lp(dash))
+ 18.         restore
+ 19. end
+
+. 
+. capture program drop income_distr
+
+. program              income_distr
+  1. syntax, outcome(str) restr(str) graph_name(str)
+  2.         use ..\..\derived\output\dgi_2009_2012_new_vars.dta, clear
+  3.         /*qui sum cpi_2009 if year==2012
+>         local cpi_2012 = `r(mean)'
+>         forvalues level = 1/3 {
+>                 qui sum r_level_`level' if year==2012
+>                 local l_2012_`level' = `r(mean)'*12/(`cpi_2012'/100)
+>         }*/
+.         forvalues level = 1/3 {
+  4.                 qui sum r_level_`level' if year==2009
+  5.                 local l_2012_`level' = `r(mean)'*12
+  6.         }
+  7.         sum  `outcome' if (`restr') & base_catIIop==1, det
+  8.         hist `outcome' if (!mi(cohort_t) | yob==1956) & base_catIIop==1 & 
+> ///
+>                         inrange(`outcome',0,`r(p95)') & (`restr') [fw = peso2
+> ] ///
+>                         , w(28000) graphregion(color(white)) legend(off) ///
+>                           title(`graph_name') name(`graph_name') ylabel(#2) /
+> //
+>                           addplot(pci 0 `l_2012_1' 0.000005 `l_2012_1' || ///
+>                                           pci 0 `l_2012_2' 0.000005 `l_2012_2
+> ' || ///
+>                                           pci 0 `l_2012_3' 0.000005 `l_2012_3
+> ')
+  9. end
+
+. 
+. capture program drop income_distr_rel
+
+. program              income_distr_rel
+  1. syntax, outcome(str) graph_name(str) [restr(str)]
+  2.         use ..\..\derived\output\dgi_2009_2012_new_vars.dta, clear
+  3.         local restriction = "(!mi(cohort_t) | yob==1956) & base_catIIop ==
+> 1"
+  4.         * Using scaled weights
+.         hist `outcome' if `restriction'  ///
+>                 & inrange(`outcome',-40000,40000) [fw=peso2] ///
+>                 , width(1500) xline(0) name(`graph_name') title(`graph_name')
+>  graphregion(color(white)) 
+  5.         hist `outcome' if `restriction'  ///
+>                 & inrange(`outcome',-33750,33750) [fw=peso2] ///
+>                 , width(1125) xline(0) name(`graph_name'_s) title(`graph_name
+> ') graphregion(color(white))  xlab(-33750(33750)33750)
+  6.         *Using NC method
+.         local outcome = "diff_l1"
+  7.                 * Midpoints of bins of width 1500, starting at 0
+.                 gen `outcome'_2 = 1 + 1500 * floor(`outcome'/1500) if `restri
+> ction'
+  8.                 * Use price as aw 
+.                 egen binheight = sum(peso) if `restriction' , by(`outcome'_2)
+  9.                 * Need to use each bin just once 
+.                 egen tag = tag(`outcome'_2) if `restriction'
+ 10.                 * Get total of weights and resize binheight 
+.                 su binheight if tag & `restriction', meanonly 
+ 11.                 di r(sum)
+ 12.                 replace binheight = binheight/r(sum) if `restriction'
+ 13.                 * Bar plot
+.                 twoway bar binheight `outcome'_2 if tag & `restriction' ///
+>                         & inrange(`outcome'_2,-50000,50000) ///
+>                         , bstyle(histogram) barw(1500) ylab(0(.001).003) ytit
+> le(Fraction) ///
+>                         xline(0) xtitle(`: var label `outcome'') graphregion(
+> color(white)) ///
+>                          name(`graph_name'_nc) title(`graph_name')
+ 14. end
+
+. 
+. main
+  6,022
+  0
+  0
+  965
+  16
+  0
+  53
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+         age |      6,022    55.18582    3.324779         48         61
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+         age |          0
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+         age |          0
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+         age |        965    55.47358    3.329513         48         61
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+         age |         16       55.75    3.511885         51         61
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+         age |          0
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+         age |         53    56.09434    3.077612         50         61
+       panel variable:  yob (weakly balanced)
+        time variable:  age, 48 to 61
+                delta:  1 unit
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+         age |         44        54.5    3.392879         48         61
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+ingresos_c~p |         44    340528.1    50379.47   252367.6   443083.2
+       panel variable:  yob (weakly balanced)
+        time variable:  age, 48 to 61
+                delta:  1 unit
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+         age |         44        54.5    3.392879         48         61
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+ingresos_c~p |         44    272167.7    41905.42   205581.5   367815.9
+       panel variable:  yob (weakly balanced)
+        time variable:  age, 48 to 61
+                delta:  1 unit
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+         age |         44        54.5    3.392879         48         61
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+ingresos_c~p |         44    476811.1       63289   383486.4   579345.8
+       panel variable:  yob (weakly balanced)
+        time variable:  age, 48 to 61
+                delta:  1 unit
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+         age |         44        54.5    3.392879         48         61
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+ingresos_c~p |         44      501791    40200.55   431283.7   585459.1
+(file ..\output\plot_ingresos_catIIop_all.pdf written in PDF format)
+(file ..\output\plot_ingresos_catIIop_gender.pdf written in PDF format)
+(file ..\output\plot_ingresos_catIIop_income.pdf written in PDF format)
+       panel variable:  yob (weakly balanced)
+        time variable:  age, 48 to 61
+                delta:  1 unit
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+         age |         44        54.5    3.392879         48         61
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+r_ingresos~p |         44      302715    21986.93   252367.6   354999.9
+       panel variable:  yob (weakly balanced)
+        time variable:  age, 48 to 61
+                delta:  1 unit
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+         age |         44        54.5    3.392879         48         61
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+r_ingresos~p |         44      242088    21837.42   205395.5   294695.4
+       panel variable:  yob (weakly balanced)
+        time variable:  age, 48 to 61
+                delta:  1 unit
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+         age |         44        54.5    3.392879         48         61
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+r_ingresos~p |         44    424217.7    21471.84   383486.4     464174
+       panel variable:  yob (weakly balanced)
+        time variable:  age, 48 to 61
+                delta:  1 unit
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+         age |         44        54.5    3.392879         48         61
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+r_ingresos~p |         44    447281.6    17862.02   409694.7   486653.7
+(file ..\output\plot_r_ingresos_catIIop_all.pdf written in PDF format)
+(file ..\output\plot_r_ingresos_catIIop_gender.pdf written in PDF format)
+(file ..\output\plot_r_ingresos_catIIop_income.pdf written in PDF format)
+
+             Real taxable labor income (single)
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%            0              0
+ 5%     9469.026              0
+10%     27942.58              0       Obs              33,169
+25%     92005.98              0       Sum of Wgt.      33,169
+
+50%     250571.8                      Mean           434329.2
+                        Largest       Std. Dev.      606551.7
+75%       547491       1.04e+07
+90%      1035918       1.40e+07       Variance       3.68e+11
+95%      1473758       1.45e+07       Skewness       5.238688
+99%      2754315       1.55e+07       Kurtosis       62.46355
+(bin=53, start=0, width=28000)
+
+             Real taxable labor income (single)
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%            0              0
+ 5%     9196.047              0
+10%     26841.86              0       Obs              20,756
+25%     84089.46              0       Sum of Wgt.      20,756
+
+50%     220778.6                      Mean           421876.7
+                        Largest       Std. Dev.      791919.1
+75%     496720.1       2.64e+07
+90%     995126.3       2.72e+07       Variance       6.27e+11
+95%      1466898       3.04e+07       Skewness       16.32565
+99%      2796214       3.63e+07       Kurtosis       520.0909
+(bin=53, start=0, width=28000)
+(file ..\output\plot_income_distr.pdf written in PDF format)
+(bin=54, start=-39970, width=1500)
+(bin=60, start=-33714.25, width=1125)
+(358,007 missing values generated)
+(358007 missing values generated)
+876836.57
+(53,925 real changes made)
+(bin=54, start=-39825.703, width=1500)
+(bin=60, start=-33730.578, width=1125)
+(358,007 missing values generated)
+(358007 missing values generated)
+876836.57
+(53,925 real changes made)
+(file ..\output\plot_l1_l3.pdf written in PDF format)
+(file ..\output\plot_l1_l3_s.pdf written in PDF format)
+(file ..\output\plot_l1_l3_nc.pdf written in PDF format)
+
+. 
+. 
+end of do-file
+
+
+Execute:  "C:\Program Files (x86)\Stata15\StataSE-64.exe" /e do "./plots_ech.do"
+
+  ___  ____  ____  ____  ____ (R)
+ /__    /   ____/   /   ____/
+___/   /   /___/   /   /___/   15.0   Copyright 1985-2017 StataCorp LLC
+  Statistics/Data Analysis            StataCorp
+                                      4905 Lakeway Drive
+     Special Edition                  College Station, Texas 77845 USA
+                                      800-STATA-PC        http://www.stata.com
+                                      979-696-4600        stata@stata.com
+                                      979-696-4601 (fax)
+
+110-user Stata network perpetual license:
+       Serial number:  401506201178
+         Licensed to:  Brown University
+                       Brown University
+
+Notes:
+      1.  Stata is running in batch mode.
+      2.  Unicode is supported; see help unicode_advice.
+      3.  Maximum number of variables is set to 5000; see help set_maxvar.
+
+. do ./plots_ech.do 
+
+. clear all
+
+. set more off
+
+. global path_ech "C:\Users\cravizza\GitHub\Aborto-Uruguay\assign_treatment\out
+> put"
+
+. 
+. program main
+  1.         plot_cohort, outcome(trabajo) t_var(age) graph_name(Employment)
+  2.         plot_cohort, outcome(horas_trabajo) t_var(age) graph_name(Hours_wo
+> rked)
+  3.         grc1leg Employment Hours_worked, rows(1) legendfrom(Employment) po
+> sition(6) cols(2) ///
+>                                 graphregion(color(white))  scale(1.2)
+  4.         graph display, ysiz(6) xsize(12)
+  5.         graph export ..\output\plot_ech.pdf, replace
+  6.         grc1leg Employment_s Hours_worked_s, rows(1) legendfrom(Employment
+> _s) position(6) cols(2) ///
+>                                 graphregion(color(white))  scale(1.2)
+  7.         graph display, ysiz(6) xsize(12)
+  8.         graph export ..\output\plot_ech_s.pdf, replace
+  9.         graph drop _all
+ 10. end
+
+. 
+. program plot_cohort
+  1. syntax, outcome(str) t_var(str) graph_name(str)
+  2.         use  "${path_ech}\ech_final_98_2016.dta", clear
+  3.         rename edad age
+  4.         tab yob
+  5.         gen cohort_t = (inrange(yob,1957,1961)) if inrange(yob,1951,1955)|
+> inrange(yob,1957,1961)
+  6.         collapse (mean) `outcome' [aw = pesoan] if (!mi(cohort_t) | yob==1
+> 956), by(yob `t_var')
+  7.         capture lab var trabajo "Employment"
+  8.         capture lab var horas_trabajo "Hours worked"
+  9.         capture lab var age "Age"
+ 10.         keep if inrange(`t_var',40,59)
+ 11.         xtset yob `t_var'
+ 12.         sum `t_var'
+ 13.         local t_min `r(min)'
+ 14.         local t_max `r(max)'
+ 15.         /*xtline `outcome' ///
+>                 , ov tlabel(`t_min' (2) `t_max' ) legend(rows(2) symx(5) si(s
+> mall)) ylab(#3) ///
+>                 graphregion(color(white)) bgcolor(white) name(`graph_name') t
+> itle(`graph_name') ///
+>                 plot6(lp("-..")) plot7(lp(dash)) plot8(lp(dash)) plot9(lp(das
+> h)) ///
+>                 plot10(lp(dash)) plot11(lp(dash)) */
+.         xtline `outcome' if inrange(yob,1954,1958) ///
+>                 , ov tlabel(`t_min' (2) `t_max' ) legend(rows(1) symx(5) si(s
+> mall)) ylab(#3) ///
+>                 graphregion(color(white)) bgcolor(white) name(`graph_name') t
+> itle(`graph_name') ///
+>                 plot1(lc(orange)) plot2(lc(olive))      plot3(lp("-..") lc(re
+> d)) ///
+>                 plot4(lp(dash) lc(lavender)) plot5(lp(dash) lc(khaki))
+ 16.         xtline `outcome' if inrange(yob,1955,1957) ///
+>                 , ov tlabel(`t_min' (2) `t_max' ) legend(rows(1) symx(5) si(s
+> mall)) ylab(#3) ///
+>                 graphregion(color(white)) bgcolor(white) name(`graph_name'_s)
+>  title(`graph_name') ///
+>                 plot1(lc(olive)) plot2(lp("-..") lc(red))       plot3(lp(dash
+> ) lc(lavender))
+ 17. end
+
+. 
+. main
+
+        yob |      Freq.     Percent        Cum.
+------------+-----------------------------------
+       1900 |         15        0.00        0.00
+       1901 |         21        0.00        0.00
+       1902 |         33        0.00        0.00
+       1903 |         58        0.00        0.01
+       1904 |         67        0.00        0.01
+       1905 |        109        0.01        0.02
+       1906 |        139        0.01        0.03
+       1907 |        186        0.01        0.04
+       1908 |        266        0.02        0.05
+       1909 |        363        0.02        0.07
+       1910 |        480        0.03        0.10
+       1911 |        615        0.03        0.13
+       1912 |        820        0.05        0.18
+       1913 |      1,070        0.06        0.24
+       1914 |      1,242        0.07        0.31
+       1915 |      1,510        0.09        0.40
+       1916 |      1,676        0.10        0.49
+       1917 |      1,949        0.11        0.60
+       1918 |      2,473        0.14        0.74
+       1919 |      2,728        0.16        0.90
+       1920 |      3,482        0.20        1.10
+       1921 |      4,066        0.23        1.33
+       1922 |      4,616        0.26        1.59
+       1923 |      5,305        0.30        1.89
+       1924 |      5,830        0.33        2.22
+       1925 |      6,668        0.38        2.60
+       1926 |      7,638        0.43        3.04
+       1927 |      8,188        0.47        3.50
+       1928 |      9,145        0.52        4.02
+       1929 |      9,894        0.56        4.58
+       1930 |     11,000        0.63        5.21
+       1931 |     11,636        0.66        5.87
+       1932 |     11,608        0.66        6.53
+       1933 |     12,354        0.70        7.23
+       1934 |     12,275        0.70        7.93
+       1935 |     12,454        0.71        8.64
+       1936 |     13,029        0.74        9.38
+       1937 |     12,973        0.74       10.12
+       1938 |     13,637        0.78       10.89
+       1939 |     13,909        0.79       11.68
+       1940 |     14,818        0.84       12.53
+       1941 |     14,860        0.84       13.37
+       1942 |     14,619        0.83       14.20
+       1943 |     15,206        0.86       15.07
+       1944 |     15,618        0.89       15.95
+       1945 |     16,302        0.93       16.88
+       1946 |     16,817        0.96       17.84
+       1947 |     16,921        0.96       18.80
+       1948 |     17,270        0.98       19.78
+       1949 |     17,376        0.99       20.77
+       1950 |     18,408        1.05       21.81
+       1951 |     18,394        1.05       22.86
+       1952 |     18,497        1.05       23.91
+       1953 |     19,005        1.08       24.99
+       1954 |     19,570        1.11       26.10
+       1955 |     20,752        1.18       27.28
+       1956 |     21,849        1.24       28.53
+       1957 |     21,385        1.22       29.74
+       1958 |     21,449        1.22       30.96
+       1959 |     21,601        1.23       32.19
+       1960 |     22,552        1.28       33.47
+       1961 |     22,500        1.28       34.75
+       1962 |     22,317        1.27       36.02
+       1963 |     22,577        1.28       37.30
+       1964 |     22,436        1.28       38.58
+       1965 |     21,596        1.23       39.81
+       1966 |     20,896        1.19       40.99
+       1967 |     20,417        1.16       42.15
+       1968 |     20,689        1.18       43.33
+       1969 |     21,430        1.22       44.55
+       1970 |     21,981        1.25       45.80
+       1971 |     22,108        1.26       47.05
+       1972 |     21,911        1.25       48.30
+       1973 |     21,962        1.25       49.55
+       1974 |     22,410        1.27       50.82
+       1975 |     23,537        1.34       52.16
+       1976 |     24,586        1.40       53.56
+       1977 |     24,732        1.41       54.96
+       1978 |     24,632        1.40       56.36
+       1979 |     24,006        1.36       57.73
+       1980 |     23,752        1.35       59.08
+       1981 |     23,076        1.31       60.39
+       1982 |     23,703        1.35       61.74
+       1983 |     23,388        1.33       63.07
+       1984 |     23,766        1.35       64.42
+       1985 |     24,093        1.37       65.79
+       1986 |     24,808        1.41       67.20
+       1987 |     25,066        1.42       68.62
+       1988 |     26,074        1.48       70.11
+       1989 |     26,366        1.50       71.61
+       1990 |     27,010        1.54       73.14
+       1991 |     26,795        1.52       74.66
+       1992 |     26,928        1.53       76.19
+       1993 |     27,150        1.54       77.74
+       1994 |     28,087        1.60       79.33
+       1995 |     28,915        1.64       80.98
+       1996 |     29,196        1.66       82.64
+       1997 |     28,650        1.63       84.27
+       1998 |     27,425        1.56       85.83
+       1999 |     25,869        1.47       87.30
+       2000 |     24,897        1.42       88.71
+       2001 |     23,271        1.32       90.03
+       2002 |     22,260        1.27       91.30
+       2003 |     21,195        1.20       92.50
+       2004 |     20,109        1.14       93.65
+       2005 |     18,564        1.06       94.70
+       2006 |     17,069        0.97       95.67
+       2007 |     14,757        0.84       96.51
+       2008 |     12,990        0.74       97.25
+       2009 |     11,060        0.63       97.88
+       2010 |      9,631        0.55       98.43
+       2011 |      8,142        0.46       98.89
+       2012 |      6,680        0.38       99.27
+       2013 |      5,351        0.30       99.57
+       2014 |      3,941        0.22       99.80
+       2015 |      2,428        0.14       99.94
+       2016 |      1,128        0.06      100.00
+------------+-----------------------------------
+      Total |  1,759,109      100.00
+(1,553,404 missing values generated)
+(27 observations deleted)
+       panel variable:  yob (unbalanced)
+        time variable:  age, 40 to 59
+                delta:  1 unit
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+         age |        182    50.18681    5.169849         40         59
+
+        yob |      Freq.     Percent        Cum.
+------------+-----------------------------------
+       1900 |         15        0.00        0.00
+       1901 |         21        0.00        0.00
+       1902 |         33        0.00        0.00
+       1903 |         58        0.00        0.01
+       1904 |         67        0.00        0.01
+       1905 |        109        0.01        0.02
+       1906 |        139        0.01        0.03
+       1907 |        186        0.01        0.04
+       1908 |        266        0.02        0.05
+       1909 |        363        0.02        0.07
+       1910 |        480        0.03        0.10
+       1911 |        615        0.03        0.13
+       1912 |        820        0.05        0.18
+       1913 |      1,070        0.06        0.24
+       1914 |      1,242        0.07        0.31
+       1915 |      1,510        0.09        0.40
+       1916 |      1,676        0.10        0.49
+       1917 |      1,949        0.11        0.60
+       1918 |      2,473        0.14        0.74
+       1919 |      2,728        0.16        0.90
+       1920 |      3,482        0.20        1.10
+       1921 |      4,066        0.23        1.33
+       1922 |      4,616        0.26        1.59
+       1923 |      5,305        0.30        1.89
+       1924 |      5,830        0.33        2.22
+       1925 |      6,668        0.38        2.60
+       1926 |      7,638        0.43        3.04
+       1927 |      8,188        0.47        3.50
+       1928 |      9,145        0.52        4.02
+       1929 |      9,894        0.56        4.58
+       1930 |     11,000        0.63        5.21
+       1931 |     11,636        0.66        5.87
+       1932 |     11,608        0.66        6.53
+       1933 |     12,354        0.70        7.23
+       1934 |     12,275        0.70        7.93
+       1935 |     12,454        0.71        8.64
+       1936 |     13,029        0.74        9.38
+       1937 |     12,973        0.74       10.12
+       1938 |     13,637        0.78       10.89
+       1939 |     13,909        0.79       11.68
+       1940 |     14,818        0.84       12.53
+       1941 |     14,860        0.84       13.37
+       1942 |     14,619        0.83       14.20
+       1943 |     15,206        0.86       15.07
+       1944 |     15,618        0.89       15.95
+       1945 |     16,302        0.93       16.88
+       1946 |     16,817        0.96       17.84
+       1947 |     16,921        0.96       18.80
+       1948 |     17,270        0.98       19.78
+       1949 |     17,376        0.99       20.77
+       1950 |     18,408        1.05       21.81
+       1951 |     18,394        1.05       22.86
+       1952 |     18,497        1.05       23.91
+       1953 |     19,005        1.08       24.99
+       1954 |     19,570        1.11       26.10
+       1955 |     20,752        1.18       27.28
+       1956 |     21,849        1.24       28.53
+       1957 |     21,385        1.22       29.74
+       1958 |     21,449        1.22       30.96
+       1959 |     21,601        1.23       32.19
+       1960 |     22,552        1.28       33.47
+       1961 |     22,500        1.28       34.75
+       1962 |     22,317        1.27       36.02
+       1963 |     22,577        1.28       37.30
+       1964 |     22,436        1.28       38.58
+       1965 |     21,596        1.23       39.81
+       1966 |     20,896        1.19       40.99
+       1967 |     20,417        1.16       42.15
+       1968 |     20,689        1.18       43.33
+       1969 |     21,430        1.22       44.55
+       1970 |     21,981        1.25       45.80
+       1971 |     22,108        1.26       47.05
+       1972 |     21,911        1.25       48.30
+       1973 |     21,962        1.25       49.55
+       1974 |     22,410        1.27       50.82
+       1975 |     23,537        1.34       52.16
+       1976 |     24,586        1.40       53.56
+       1977 |     24,732        1.41       54.96
+       1978 |     24,632        1.40       56.36
+       1979 |     24,006        1.36       57.73
+       1980 |     23,752        1.35       59.08
+       1981 |     23,076        1.31       60.39
+       1982 |     23,703        1.35       61.74
+       1983 |     23,388        1.33       63.07
+       1984 |     23,766        1.35       64.42
+       1985 |     24,093        1.37       65.79
+       1986 |     24,808        1.41       67.20
+       1987 |     25,066        1.42       68.62
+       1988 |     26,074        1.48       70.11
+       1989 |     26,366        1.50       71.61
+       1990 |     27,010        1.54       73.14
+       1991 |     26,795        1.52       74.66
+       1992 |     26,928        1.53       76.19
+       1993 |     27,150        1.54       77.74
+       1994 |     28,087        1.60       79.33
+       1995 |     28,915        1.64       80.98
+       1996 |     29,196        1.66       82.64
+       1997 |     28,650        1.63       84.27
+       1998 |     27,425        1.56       85.83
+       1999 |     25,869        1.47       87.30
+       2000 |     24,897        1.42       88.71
+       2001 |     23,271        1.32       90.03
+       2002 |     22,260        1.27       91.30
+       2003 |     21,195        1.20       92.50
+       2004 |     20,109        1.14       93.65
+       2005 |     18,564        1.06       94.70
+       2006 |     17,069        0.97       95.67
+       2007 |     14,757        0.84       96.51
+       2008 |     12,990        0.74       97.25
+       2009 |     11,060        0.63       97.88
+       2010 |      9,631        0.55       98.43
+       2011 |      8,142        0.46       98.89
+       2012 |      6,680        0.38       99.27
+       2013 |      5,351        0.30       99.57
+       2014 |      3,941        0.22       99.80
+       2015 |      2,428        0.14       99.94
+       2016 |      1,128        0.06      100.00
+------------+-----------------------------------
+      Total |  1,759,109      100.00
+(1,553,404 missing values generated)
+(27 observations deleted)
+       panel variable:  yob (unbalanced)
+        time variable:  age, 40 to 59
+                delta:  1 unit
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+         age |        182    50.18681    5.169849         40         59
+(file ..\output\plot_ech.pdf written in PDF format)
+(file ..\output\plot_ech_s.pdf written in PDF format)
+
+.         
+. /*
+> gen cohort = .
+> forvalues y = 0/7 {
+>         local age_treat = 18 + `y'*5
+>         
+>         local yr_start = 1990 - `y'*5
+>         local yr_end   = `yr_start'+4
+>         di "Age: " `age_treat' ". Start: " `yr_start' ". End: " `yr_end'
+>         
+>         replace cohort = `age_treat' if inrange(yob,`yr_start',`yr_end')
+>         gen     cohort_`age_treat'    = inrange(yob,`yr_start',`yr_end')
+> }
+> *****
+> gen     cohort = 0  if inrange(yob,1933,1944)
+> replace cohort = 11 if inrange(yob,1995,2000) 
+> forvalues y = 1/10 {
+>         local yr_start = 1940 + `y'*5
+>         local yr_end   = `yr_start'+4
+>         di "Start: " `yr_start' ". End: " `yr_end'
+>         replace cohort = `y' if inrange(yob,`yr_start',`yr_end')
+> }
+
+end of do-file
+
+ make.py ended: 2018-08-07 16:41:30
